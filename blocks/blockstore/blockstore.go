@@ -25,7 +25,7 @@ var ValueTypeMismatch = errors.New("The retrieved value is not a Block")
 
 var ErrNotFound = errors.New("blockstore: block not found")
 
-// Blockstore wraps a ThreadSafeDatastore
+// Blockstore wraps a Datastore
 type Blockstore interface {
 	DeleteBlock(key.Key) error
 	Has(key.Key) (bool, error)
@@ -51,16 +51,18 @@ type GCBlockstore interface {
 	PinLock() func()
 }
 
-func NewBlockstore(d ds.ThreadSafeDatastore) *blockstore {
+func NewBlockstore(d ds.Batching) *blockstore {
+	var dsb ds.Batching
 	dd := dsns.Wrap(d, BlockPrefix)
+	dsb = dd
 	return &blockstore{
-		datastore: dd,
+		datastore: dsb,
 	}
 }
 
 type blockstore struct {
-	datastore ds.BatchingDatastore
-	// cant be ThreadSafeDatastore cause namespace.Datastore doesnt support it.
+	datastore ds.Batching
+	// cant be Datastore cause namespace.Datastore doesnt support it.
 	// we do check it on `NewBlockstore` though.
 
 	lk sync.RWMutex
