@@ -3,8 +3,8 @@ package corehttp
 import (
 	"fmt"
 	"net/http"
-	"sync"
 
+	key "github.com/ipfs/go-ipfs/blocks/key"
 	core "github.com/ipfs/go-ipfs/core"
 	id "github.com/ipfs/go-ipfs/p2p/protocol/identify"
 )
@@ -15,8 +15,10 @@ type Gateway struct {
 }
 
 type GatewayConfig struct {
-	BlockList *BlockList
-	Writable  bool
+	BlackList key.KeySet
+	WhiteList key.KeySet
+
+	Writable bool
 }
 
 func NewGateway(conf GatewayConfig) *Gateway {
@@ -39,8 +41,7 @@ func (g *Gateway) ServeOption() ServeOption {
 
 func GatewayOption(writable bool) ServeOption {
 	g := NewGateway(GatewayConfig{
-		Writable:  writable,
-		BlockList: &BlockList{},
+		Writable: writable,
 	})
 	return g.ServeOption()
 }
@@ -53,34 +54,4 @@ func VersionOption() ServeOption {
 		})
 		return mux, nil
 	}
-}
-
-// Decider decides whether to Allow string
-type Decider func(string) bool
-
-type BlockList struct {
-	mu      sync.RWMutex
-	Decider Decider
-}
-
-func (b *BlockList) ShouldAllow(s string) bool {
-	b.mu.RLock()
-	d := b.Decider
-	b.mu.RUnlock()
-	if d == nil {
-		return true
-	}
-	return d(s)
-}
-
-// SetDecider atomically swaps the blocklist's decider. This method is
-// thread-safe.
-func (b *BlockList) SetDecider(d Decider) {
-	b.mu.Lock()
-	b.Decider = d
-	b.mu.Unlock()
-}
-
-func (b *BlockList) ShouldBlock(s string) bool {
-	return !b.ShouldAllow(s)
 }
