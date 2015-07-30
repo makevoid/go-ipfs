@@ -1,35 +1,28 @@
 package chunk
 
 import (
-	"fmt"
 	"hash/fnv"
 	"io"
-	"math"
 
 	"github.com/whyrusleeping/chunker"
 )
 
+var IpfsRabinPoly = chunker.Pol(17437180132763653)
+
 type Rabin struct {
-	avChunkSize int
+	avChunkSize uint64
 }
 
-func NewRabin(avgBlkSize int) *Rabin {
+func NewRabin(avgBlkSize uint64) *Rabin {
 	return &Rabin{avChunkSize: avgBlkSize}
 }
 
 func (mr *Rabin) Split(r io.Reader) (<-chan []byte, <-chan error) {
 	errs := make(chan error, 1)
 
-	pol, err := chunker.RandomPolynomial()
-	if err != nil {
-		errs <- err
-		close(errs)
-		return nil, errs
-	}
-
-	nbits := uint(math.Log2(float64(mr.avChunkSize)))
 	h := fnv.New32a()
-	ch := chunker.New(r, pol, h, nbits)
+	ch := chunker.New(r, IpfsRabinPoly, h, mr.avChunkSize)
+	ch.MinSize = mr.avChunkSize / 3 //tweaking to get a better average size
 
 	out := make(chan []byte, 16)
 	go func() {
@@ -44,7 +37,7 @@ func (mr *Rabin) Split(r io.Reader) (<-chan []byte, <-chan error) {
 				}
 				return
 			}
-			fmt.Println("chunk returned", chunk.Length, len(chunk.Data))
+
 			out <- chunk.Data
 		}
 	}()
